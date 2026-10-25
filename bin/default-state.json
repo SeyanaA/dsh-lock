@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "configured": true,
+  "passwordIsDefault": true,
+  "salt": "iHZd8meIU+ua37/qjAF10Q==",
+  "hash": "sdRgr4BhP8EVfDzMydRpLUDkFa4DRf83UtnmSwV8OYE=",
+  "biometric": true,
+  "locked": true,
+  "lastUnlockAt": 0,
+  "reason": "reset",
+  "failedAttempts": 0,
+  "lockedUntil": 0,
+  "updatedAt": 1792962700539
+}

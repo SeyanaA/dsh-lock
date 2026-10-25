@@ -1,0 +1,63 @@
+{
+  "name": "dsh-lock",
+  "version": "0.1.6",
+  "description": "MacBook Touch ID / password lock for DeepSeek Harness Desktop: re-authenticate after every restart or 48 hours, with a settings page under Settings → 安全锁定.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    },
+    "./client": {
+      "default": "./client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "bin/",
+    "src/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.0-rc.1"
+  },
+  "scripts": {
+    "test": "node test/run.mjs"
+  },
+  "os": [
+    "darwin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SeyanaA/dsh-lock.git"
+  },
+  "homepage": "https://github.com/SeyanaA/dsh-lock#readme",
+  "bugs": {
+    "url": "https://github.com/SeyanaA/dsh-lock/issues"
+  },
+  "author": "SeyanaA",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "touch-id",
+    "lock",
+    "macos"
+  ],
+  "license": "MIT"
+}

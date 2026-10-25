@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.zip
+*.log
+.DS_Store
+bin/default-state.json.bak
