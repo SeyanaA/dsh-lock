@@ -1,6 +1,6 @@
 {
   "name": "dsh-lock",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "MacBook Touch ID / password lock for DeepSeek Harness Desktop: re-authenticate after every restart or 48 hours, with a settings page under Settings → 安全锁定.",
   "type": "module",
   "main": "index.js",

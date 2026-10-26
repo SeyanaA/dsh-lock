@@ -472,7 +472,7 @@ export class LockStore {
   setBiometric(enabled) {
     if (!this.isUnlocked()) throw new LockError(401, '当前会话未解锁')
     if (enabled === true && this.biometricAvailable !== true) {
-      throw new LockError(400, '当前 Mac 不支持 Touch ID 或尚未录入指纹')
+      throw new LockError(400, '当前 Mac 不支持本机指纹（Touch ID）或尚未录入指纹')
     }
     this.state.biometric = enabled === true
     this.state.updatedAt = this.now()
@@ -670,14 +670,14 @@ export function apply(ctx) {
     handler: mutation('POST', async (req, res) => {
       const available = await store.ensureBiometric()
       if (!store.isConfigured()) throw new LockError(409, '尚未设置解锁方式')
-      if (!store.biometricEnabled()) throw new LockError(400, '未启用 Touch ID')
-      if (!available) throw new LockError(400, '当前 Mac 不支持 Touch ID 或尚未录入指纹')
+      if (!store.biometricEnabled()) throw new LockError(400, '未启用本机解锁')
+      if (!available) throw new LockError(400, '当前 Mac 不支持本机指纹（Touch ID）或尚未录入指纹')
       if (store.biometricInFlight) throw new LockError(429, '正在等待系统验证')
       const waitMs = reservePrompt()
       if (waitMs > 0) throw new LockError(429, '请稍后再试', { retryAfterMs: waitMs })
       store.biometricInFlight = true
       try {
-        const result = await runHelper(['--auth', '解锁 DeepSeek Harness'], 120_000)
+        const result = await runHelper(['--auth', '解锁 DeepSeek Harness（本机指纹 / Mac 登录密码）'], 120_000)
         if (result.code !== 0) {
           const message = result.code === 2
             ? '系统认证不可用'
@@ -722,7 +722,7 @@ export function apply(ctx) {
     handler: mutation('POST', async (req, res) => {
       const available = await store.ensureBiometric()
       const body = await readJson(req)
-      if (body.enabled === true && !available) throw new LockError(400, '当前 Mac 不支持 Touch ID 或尚未录入指纹')
+      if (body.enabled === true && !available) throw new LockError(400, '当前 Mac 不支持本机指纹（Touch ID）或尚未录入指纹')
       store.setBiometric(body.enabled === true)
       sendJson(res, 200, { ok: true, status: status() })
     }),

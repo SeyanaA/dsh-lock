@@ -273,8 +273,12 @@ window.__ModuleLoader__.load({
     //#region unlock animations
 
     /**
-     * The brief success animation shown after a password or a Touch ID unlock,
-     * before the gate fades away.
+     * The brief success animation shown after the plugin password or a local
+     * device unlock, before the gate fades away.
+     *
+     * `biometric` is the local-authentication path: macOS decides inside the
+     * system sheet whether that was Touch ID or the Mac login password, so the
+     * copy must not claim it was a fingerprint — it says 本机解锁.
      * @param {object} props - `{ method: 'password'|'biometric' }`.
      */
     function SuccessView(props) {
@@ -294,8 +298,10 @@ window.__ModuleLoader__.load({
           h('svg', { key: 'check', className: 'dshl-successCheck', viewBox: '0 0 24 24', 'aria-hidden': 'true' },
             h('path', { d: 'M6.4 12.4l3.5 3.5 7.7-8.3' })),
         ]),
-        h('div', { key: 'title', className: 'dshl-successTitle' }, biometric ? '指纹验证通过' : '密码验证通过'),
-        h('div', { key: 'hint', className: 'dshl-successHint' }, '正在进入…'),
+        h('div', { key: 'title', className: 'dshl-successTitle' }, biometric ? '本机解锁成功' : '解锁密码通过'),
+        h('div', { key: 'hint', className: 'dshl-successHint' }, biometric
+          ? '已通过本机指纹或 Mac 登录密码验证，正在进入…'
+          : '正在进入…'),
       ])
     }
 
@@ -381,8 +387,8 @@ window.__ModuleLoader__.load({
           },
         }),
         props.status !== null && props.status.biometricAvailable === true
-          ? h('p', { key: 'bio', className: 'dshl-footnote dshl-footnoteTight' }, '检测到 Touch ID：设置完成后，轻触锁屏空白处或按 Enter 即可唤起系统验证（可在设置中关闭）。')
-          : h('p', { key: 'bio', className: 'dshl-footnote dshl-footnoteTight' }, '此 Mac 未检测到可用 Touch ID，请使用密码解锁。'),
+          ? h('p', { key: 'bio', className: 'dshl-footnote dshl-footnoteTight' }, '检测到本机指纹：设置完成后，轻触锁屏空白处或按 Enter 可唤起系统验证（Touch ID 或 Mac 登录密码，可在设置中关闭）。')
+          : h('p', { key: 'bio', className: 'dshl-footnote dshl-footnoteTight' }, '此 Mac 未检测到可用 Touch ID，请使用上面的解锁密码。'),
         h('button', {
           key: 'submit',
           type: 'button',
@@ -393,7 +399,7 @@ window.__ModuleLoader__.load({
       ])
     }
 
-    /** Password / Touch ID unlock. */
+    /** Plugin password / local-device unlock. */
     function UnlockForm(props) {
       const status = props.status
       const biometricReady = status !== null && status.biometricEnabled === true && status.biometricAvailable === true
@@ -402,17 +408,17 @@ window.__ModuleLoader__.load({
           ? h('p', { key: 'autoHint', className: 'dshl-autoHint' }, [
             h(FingerprintGlyph, { key: 'icon', size: 15 }),
             h('span', { key: 'text' }, props.biometricBusy === true
-              ? 'Touch ID 已唤起，把手指放上去即可解锁…'
-              : '轻触锁屏空白处或按 Enter 唤起 Touch ID，然后把手指放上去解锁。'),
+              ? '已唤起本机验证：用 Touch ID，或在系统面板里输入 Mac 登录密码…'
+              : '轻触锁屏空白处或按 Enter 唤起本机验证：Touch ID，或系统面板里的 Mac 登录密码。'),
           ])
           : null,
         h(PasswordField, {
           key: 'password',
-          label: '密码',
+          label: '解锁密码',
           value: props.password,
           autoFocus: true,
           autoComplete: 'current-password',
-          placeholder: '输入解锁密码',
+          placeholder: '输入本插件的解锁密码',
           onChange: props.onPassword,
           onKeyDown: (event) => {
             if (event.key === 'Enter') props.onSubmit()
@@ -433,12 +439,12 @@ window.__ModuleLoader__.load({
               className: 'dshl-secondary',
               disabled: props.busy === true || props.biometricBusy === true,
               onClick: props.onBiometric,
-            }, [h(FingerprintGlyph, { key: 'icon' }), props.biometricBusy === true ? '等待验证…' : 'Touch ID'])
+            }, [h(FingerprintGlyph, { key: 'icon' }), props.biometricBusy === true ? '等待验证…' : '本机解锁'])
             : null,
         ]),
         biometricReady
           ? null
-          : h('p', { key: 'biohint', className: 'dshl-footnote' }, '可在 设置 → 安全锁定 中启用 Touch ID。'),
+          : h('p', { key: 'biohint', className: 'dshl-footnote' }, '可在 设置 → 安全锁定 中启用本机解锁（Touch ID / Mac 登录密码）。'),
         h('button', {
           key: 'helpToggle',
           type: 'button',
@@ -718,9 +724,9 @@ window.__ModuleLoader__.load({
             h('span', { key: 'v2' }, status === null ? '读取中…' : status.locked ? '已锁定' : '已解锁'),
             h('span', { key: 'k3', className: 'dshl-key' }, '上次验证'),
             h('span', { key: 'v3' }, status === null ? '—' : formatTime(status.lastUnlockAt)),
-            h('span', { key: 'k4', className: 'dshl-key' }, '密码'),
+            h('span', { key: 'k4', className: 'dshl-key' }, '解锁密码'),
             h('span', { key: 'v4' }, status !== null && status.passwordIsDefault ? '默认密码 4396（建议修改）' : '已自定义'),
-            h('span', { key: 'k5', className: 'dshl-key' }, 'Touch ID'),
+            h('span', { key: 'k5', className: 'dshl-key' }, '本机解锁'),
             h('span', { key: 'v5' }, status === null
               ? '读取中…'
               : unavailable
@@ -738,7 +744,7 @@ window.__ModuleLoader__.load({
         ]),
 
         h('section', { key: 'password', className: 'dshl-section' }, [
-          h('h2', { key: 'title', className: 'dshl-sectionTitle' }, '修改密码'),
+          h('h2', { key: 'title', className: 'dshl-sectionTitle' }, '修改解锁密码'),
           h(PasswordField, {
             key: 'current',
             label: '当前密码',
@@ -772,7 +778,7 @@ window.__ModuleLoader__.load({
         ]),
 
         h('section', { key: 'biometric', className: 'dshl-section' }, [
-          h('h2', { key: 'title', className: 'dshl-sectionTitle' }, 'Touch ID'),
+          h('h2', { key: 'title', className: 'dshl-sectionTitle' }, '本机解锁'),
           h('label', { key: 'toggle', className: 'dshl-check' }, [
             h('input', {
               key: 'input',
@@ -783,7 +789,7 @@ window.__ModuleLoader__.load({
             }),
             h('span', { key: 'text' }, unavailable
               ? '此 Mac 不可用（需要支持并已录入 Touch ID）'
-              : '允许使用 Touch ID 解锁（认证失败时可回退到系统登录密码）'),
+              : '允许使用本机指纹解锁；系统面板也接受 Mac 登录密码（不是上面的解锁密码）'),
           ]),
         ]),
 

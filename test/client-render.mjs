@@ -318,7 +318,8 @@ const unlockText = textOf(api.LockScreen({
 }))
 check(unlockText.includes('已锁定'), 'unlock screen title')
 check(unlockText.includes('DSH 重新启动后需要重新验证'), 'unlock screen restart reason')
-check(unlockText.includes('轻触锁屏空白处或按 Enter'), 'unlock screen explains how to raise Touch ID')
+check(unlockText.includes('轻触锁屏空白处或按 Enter'), 'unlock screen explains how to raise local authentication')
+check(unlockText.includes('本机解锁') && unlockText.includes('解锁密码'), 'unlock screen labels local unlock and the plugin password separately')
 check(unlockText.includes('忘记密码'), 'unlock screen recovery hint')
 check(unlockText.includes('4396'), 'unlock screen default-password warning')
 check(unlockText.includes('reset-password'), 'unlock screen terminal command')
@@ -343,7 +344,7 @@ const pendingText = textOf(api.LockScreen({
   onBiometric: noop,
   onHelpToggle: noop,
 }))
-check(pendingText.includes('Touch ID 已唤起'), 'pending Touch ID state copy')
+check(pendingText.includes('已唤起本机验证'), 'pending local-auth state copy')
 
 // ------------------------------------------------------------------ success animations
 const biometricSuccess = expand(api.LockScreen({
@@ -355,7 +356,9 @@ const biometricSuccess = expand(api.LockScreen({
   onPassword: noop, onConfirm: noop, onBiometricToggle: noop, onSubmit: noop, onBiometric: noop, onHelpToggle: noop,
 }))
 const biometricText = collectText(biometricSuccess).join(' ')
-check(biometricText.includes('指纹验证通过') && biometricText.includes('正在进入'), 'fingerprint success animation copy')
+check(biometricText.includes('本机解锁成功') && biometricText.includes('正在进入'), 'local-unlock success animation copy')
+check(biometricText.includes('Mac 登录密码'), 'local-unlock success must name the Mac login password fallback')
+check(!biometricText.includes('指纹验证通过'), 'local unlock must not claim a fingerprint that may not have been used')
 check(classesOf(biometricSuccess).includes('dshl-successBiometric'), 'fingerprint success styling')
 check(classesOf(biometricSuccess).includes('dshl-successCheck'), 'fingerprint success draws a check mark')
 check(classesOf(biometricSuccess).includes('dshl-overlaySuccess'), 'overlay fade-out animation class')
@@ -368,7 +371,7 @@ const passwordSuccess = expand(api.LockScreen({
   error: '', retryAfterMs: 0, help: false, biometricPending: false,
   onPassword: noop, onConfirm: noop, onBiometricToggle: noop, onSubmit: noop, onBiometric: noop, onHelpToggle: noop,
 }))
-check(collectText(passwordSuccess).join(' ').includes('密码验证通过'), 'password success animation copy')
+check(collectText(passwordSuccess).join(' ').includes('解锁密码通过'), 'password success animation copy')
 check(classesOf(passwordSuccess).includes('dshl-successPassword'), 'password success styling')
 check(classesOf(passwordSuccess).includes('dshl-successCheck'), 'password success draws a check mark')
 check(classesOf(passwordSuccess).includes('dshl-shackleOpen'), 'password success opens the lock')
@@ -389,8 +392,9 @@ const settingsText = textOf(api.SettingsView({
   onToggleBiometric: noop,
 }))
 check(settingsText.includes('锁定状态'), 'settings: status section')
-check(settingsText.includes('修改密码'), 'settings: password section')
-check(settingsText.includes('Touch ID'), 'settings: biometric section')
+check(settingsText.includes('修改解锁密码'), 'settings: password section')
+check(settingsText.includes('本机解锁'), 'settings: local-unlock section')
+check(settingsText.includes('Mac 登录密码'), 'settings: local unlock names the Mac login password fallback')
 check(settingsText.includes('立即锁定'), 'settings: lock-now action')
 
 // ------------------------------------------------------------------ one-click header lock button
@@ -439,11 +443,11 @@ check(!requests.some((request) => request.path.includes('/api/dsh-lock/biometric
 fireDocument('pointerdown', { target: { closest: () => null } })
 await sleep(250)
 check(requests.some((request) => request.path.includes('/api/dsh-lock/biometric')), 'the first lock-screen gesture must raise the biometric sheet')
-check(collectText(latestTree).join(' ').includes('指纹验证通过'), 'the automatic-success path plays the new fingerprint animation')
+check(collectText(latestTree).join(' ').includes('本机解锁成功'), 'the automatic-success path plays the local-unlock animation')
 check(classesOf(latestTree).includes('dshl-successCheck'), 'the success animation draws the check mark')
 await sleep(1250)
 const afterUnlockText = latestTree === null ? '' : collectText(latestTree).join(' ')
-check(afterUnlockText === '' || !afterUnlockText.includes('指纹验证通过'), 'the gate disappears after the success animation')
+check(afterUnlockText === '' || !afterUnlockText.includes('本机解锁成功'), 'the gate disappears after the success animation')
 
 // The client marks every request so the hardened host can trust it.
 check(

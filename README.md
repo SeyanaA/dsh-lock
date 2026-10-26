@@ -1,9 +1,9 @@
-# dsh-lock · DSH 锁屏 / Touch ID 验证
+# dsh-lock · DSH 锁屏 / 本机指纹·密码解锁
 
 [![test](https://github.com/SeyanaA/dsh-lock/actions/workflows/test.yml/badge.svg)](https://github.com/SeyanaA/dsh-lock/actions/workflows/test.yml)
 [![release](https://img.shields.io/github/v/release/SeyanaA/dsh-lock)](https://github.com/SeyanaA/dsh-lock/releases)
 
-> 首个公开版本 **v0.1.6**（macOS 26 Liquid Glass 风格）。
+> 最新版本 **v0.1.7**（macOS 26 Liquid Glass 风格）。
 > 下载：[Releases](https://github.com/SeyanaA/dsh-lock/releases) · 预览：[`docs/preview-lock.png`](./docs/preview-lock.png)
 
 ![锁屏预览](./docs/preview-lock.png)
@@ -11,42 +11,46 @@
 给 [DeepSeek Harness](https://github.com/deepseek-ai) Desktop 用的**本地锁屏插件**（macOS，
 建议 MacBook 且支持 Touch ID）：
 
-- **每次启动 DSH**：需要重新验证（密码或 Touch ID）；
+- **每次启动 DSH**：需要重新验证（插件解锁密码，或**本机指纹 / Mac 登录密码**）；
 - **48 小时未验证**：下一次打开 / 状态轮询时重新锁定；
 - **首次访问**：强制设置解锁密码（**至少 4 位，内容不限**，任何字符都可以）；
-- **不自动弹指纹**：遵守 macOS 安全惯例，锁屏出现时**不会主动弹出**系统验证面板；你只要
-  **轻触锁屏空白处 / 按一次 Enter / 点一下 Touch ID**，系统面板才会被唤起，然后把手指放上去
-  即解锁（系统面板也允许回退到 Mac 登录密码）；
-  > 说明：macOS 不向第三方应用开放“后台监听 Touch ID 传感器”的能力，指纹验证必须通过系统
-  > 面板完成，这是 Apple 的安全设计；所以无法做到“手指一放就检测、完全零交互”。
+- **本机指纹 / 密码解锁**：点「本机解锁」或轻触锁屏空白处 / 按一次 Enter 后，由 **macOS
+  系统面板**完成验证——可以放手指用 **Touch ID**，也可以直接输入 **Mac 登录密码**回退。
+  > 这是**本机（macOS 账户）验证**，不是插件自己的解锁密码；两者互相独立。因为系统面板里
+  > 究竟用了指纹还是 Mac 密码，插件无法得知，所以按钮、成功动画与提示统一标注为
+  > **「本机解锁」**，不会声称「指纹验证通过」。
+  > 另外 macOS 不向第三方应用开放“后台监听 Touch ID 传感器”的能力，验证必须经系统面板
+  > 完成，这是 Apple 的安全设计；所以无法做到“手指一放就检测、完全零交互”。
 - **液态玻璃（Liquid Glass）视觉**：按 Apple HIG “Materials”与 macOS 26 控制层规范重做——
   胶囊形输入框与按钮（参考 macOS 搜索框）、半透明玻璃材质 + 背景模糊/饱和度增强、
   细高光边与柔和内阴影、仅主操作使用强调色（系统蓝 #0A84FF）、深浅色主题自适应；
   预览图见 [`docs/preview-lock.png`](./docs/preview-lock.png)。
-- **解锁动画**：指纹解锁 = 绿色柔光 + 指纹淡出 + 对勾描边动画；密码解锁 = 蓝色柔光 + 锁扣
-  弹开 + 对勾描边动画，随后玻璃面板淡出；
+- **解锁动画**：**本机解锁**（指纹或 Mac 登录密码）= 绿色柔光 + 指纹淡出 + 对勾描边，
+  文案为「本机解锁成功」；**插件解锁密码** = 蓝色柔光 + 锁扣弹开 + 对勾描边，文案为
+  「解锁密码通过」；随后玻璃面板淡出；
 - **忘记密码**：终端执行一条命令，密码恢复为默认密码 **4396**，重新打开 DSH 输入 4396
   解锁，再到设置里修改；
 - **右上角一键锁定**：会话头部右侧工具区新增锁形按钮，点击立即锁定并呼出锁屏；
-- **配置入口**：`设置 → 安全锁定`（修改密码、开关 Touch ID、立即锁定、查看重置命令）。
+- **配置入口**：`设置 → 安全锁定`（修改解锁密码、开关本机解锁、立即锁定、查看重置命令）。
 
 数据全部在本机：密码只以 scrypt 哈希形式保存在 `~/.dsh/dsh-lock/state.json`（权限 600），
 不读取任何会话内容，不发起网络请求。
 
 > A local lock screen for DeepSeek Harness Desktop on macOS: re-authenticate after every
-> restart or 48 hours, with Touch ID via LocalAuthentication and a 4+ character password
-> fallback. Settings live under Settings → 安全锁定.
+> restart or 48 hours with a 4+ character plugin password or a **local device unlock**
+> (Touch ID *or* the Mac login password, via LocalAuthentication — labelled 本机解锁 in the
+> UI). Settings live under Settings → 安全锁定.
 
 ---
 
 ## 环境要求
 
-- **macOS**（在 macOS 27 / Apple Silicon 上验证），MacBook 且已录入 Touch ID 才能使用指纹解锁；
-  没有 Touch ID 也可以只用密码；
+- **macOS**（在 macOS 27 / Apple Silicon 上验证）；录入 Touch ID 的 MacBook 可以指纹解锁，
+  系统面板也接受 Mac 登录密码；没有 Touch ID 的 Mac 可以只用插件解锁密码；
 - **DeepSeek Harness Desktop ≥ 0.2.0-rc.1**；
-- Touch ID 由插件自带的原生小助手（`bin/dsh-auth-helper`，Swift + LocalAuthentication）实现，
-  预编译为 arm64；Intel Mac 可执行 `scripts/build-helper.sh` 重新编译（需要 Xcode
-  Command Line Tools）。
+- 本机解锁由插件自带的原生小助手（`bin/dsh-auth-helper`，Swift + LocalAuthentication，
+  `deviceOwnerAuthentication` 策略）实现，预编译为 arm64；Intel Mac 可执行
+  `scripts/build-helper.sh` 重新编译（需要 Xcode Command Line Tools）。
 
 ## 安装
 
@@ -78,18 +82,19 @@
 
 ### 首次访问
 
-安装并重新打开 DSH 后，界面会被锁屏覆盖：**设置解锁密码**（至少 4 位，内容不限）。
-如果这台 Mac 支持并已录入 Touch ID，插件会**自动启用**（可在 设置 → 安全锁定 中关闭），
-设置完成后即解锁。
+安装并重新打开 DSH 后，界面会被锁屏覆盖：**设置解锁密码**（至少 4 位，内容不限，这是
+插件自己的解锁密码，与 Mac 登录密码无关）。如果这台 Mac 支持并已录入 Touch ID，插件会
+**自动启用本机解锁**（可在 设置 → 安全锁定 中关闭），设置完成后即解锁。
 
 ### 日常解锁
 
 锁屏出现后（不会自己弹任何窗口）：
 
-- **轻触锁屏空白处**，或**按一次 Enter**，或点一下 **Touch ID** → 系统 Touch ID 面板出现，
-  把手指放上去即解锁（无需再点按钮）；
-- 也可以直接输入密码 + 回车解锁；
-- 如果取消了指纹面板，可以再次轻触/按 Enter/点 Touch ID 重新唤起，或改用密码。
+- 轻触锁屏空白处，或按一次 Enter，或点一下 **「本机解锁」** → macOS 系统验证面板出现；
+  把手指放上去用 **Touch ID** 即解锁，也可以在面板里选择输入 **Mac 登录密码**（这**不是**
+  插件的解锁密码）；
+- 也可以直接在输入框里填**插件解锁密码** + 回车解锁；
+- 如果取消了系统面板，可以再次轻触 / 按 Enter / 点「本机解锁」重新唤起，或改用解锁密码。
 
 锁定触发条件：
 
@@ -102,7 +107,8 @@
 ### 一键锁定
 
 DSH 会话头部右上角有一个锁形按钮（在模型/搜索等工具的最右侧）：点击它会立即锁定，
-锁屏随即覆盖界面，并自动唤起 Touch ID。也可以从 `设置 → 安全锁定 → 立即锁定` 锁定。
+锁屏随即覆盖界面；随后轻触锁屏 / 按 Enter / 点「本机解锁」唤起系统验证。也可以从
+`设置 → 安全锁定 → 立即锁定` 锁定。
 
 ### 忘记密码（强制恢复默认密码 4396）
 
@@ -124,9 +130,9 @@ DSH 会话头部右上角有一个锁形按钮（在模型/搜索等工具的最
 
 `设置 → 安全锁定`：
 
-- 查看锁定规则、当前会话状态、上次验证时间、密码是否为默认密码、Touch ID 状态；
-- 修改密码（当前密码 + 新密码 ≥ 4 位）；
-- 开关 Touch ID（需要当前会话已解锁，且本机可用）；
+- 查看锁定规则、当前会话状态、上次验证时间、解锁密码是否为默认密码、本机解锁状态；
+- 修改解锁密码（当前密码 + 新密码 ≥ 4 位）；
+- 开关本机解锁（指纹 / Mac 登录密码；需要当前会话已解锁，且本机可用）；
 - **立即锁定**；
 - **忘记密码** 的重置命令。
 
@@ -145,16 +151,19 @@ $ ~/.dsh/local-plugins/dsh-lock/bin/reset-password
 - **一直显示“正在读取锁定状态”**：说明插件宿主没有加载。重启 DSH；若仍不行，让 Agent
   移除 `dsh-lock` bundle（或手动从 profile 删除）后重启。
 - **被锁住但暂时不想设置密码**：在终端执行重置命令（见上），然后输入默认密码 **4396**。
-- **Touch ID 点了没反应**：确认本机已录入指纹、系统设置里“使用触控 ID 解锁”已开启；
-  到 `设置 → 安全锁定` 确认 Touch ID 为“已启用”。系统面板本身也允许回退到 Mac 登录密码。
+- **「本机解锁」点了没反应**：确认本机已录入指纹、系统设置里“使用触控 ID 解锁”已开启；
+  到 `设置 → 安全锁定` 确认「本机解锁」为“已启用”。系统面板本身也允许回退到 Mac 登录密码
+  （与插件解锁密码不同）。
 
 ## 安全设计（含安全审核要点）
 
 **入口与认证**
 
 - 锁屏出现时**不主动弹出**任何系统验证窗口，只在用户明确手势后调用 `LocalAuthentication`；
-- 指纹验证完全由 macOS 系统面板执行，插件不接触、不存储指纹数据；
-- 系统面板允许回退到 Mac 登录密码（`deviceOwnerAuthentication` 语义，与系统一致）；
+- 本机验证（指纹或 Mac 登录密码）完全由 macOS 系统面板执行，插件不接触、不存储任何
+  指纹或密码数据，只收到“成功 / 失败”；
+- 系统面板允许回退到 Mac 登录密码（`deviceOwnerAuthentication` 语义，与系统一致）；因此
+  成功提示统一写「本机解锁成功」，不会误报为指纹验证；
 - 密码 → scrypt（随机盐，Node `crypto`）+ 常数时间比较（`timingSafeEqual`），只保存哈希；
 - 密码长度下限 4 位、上限 256 位；连续错误 5 次后进入 30 秒起、逐级翻倍的冷却；
 - 状态文件权限 `0600`，仅存哈希/时间戳，不含密码与会话内容。
@@ -165,7 +174,7 @@ $ ~/.dsh/local-plugins/dsh-lock/bin/reset-password
   `content-type: application/json` + 客户端标记头 `x-dsh-lock-client: 1` +
   同源 `Origin`（非本 DSH 源直接 403）+ 拒绝 `Sec-Fetch-Site: cross-site`；
   这样普通网页 / DNS-rebinding 无法锁定界面或刷指纹弹窗；
-- Touch ID 唤起有节流：1.5 秒内最多一次、每分钟最多 5 次，避免弹窗轰炸；
+- 本机解锁唤起有节流：1.5 秒内最多一次、每分钟最多 5 次，避免弹窗轰炸；
 - 响应带 `Cache-Control: no-store`、`X-Content-Type-Options: nosniff`；
 - 请求体限制 16KB。
 
@@ -193,7 +202,7 @@ node test/run.mjs
 - `test/client-render.mjs`：mock ModuleLoader/React 下验证 `shell.overlay` 与
   `settings.section` 注册、锁屏各模式、设置页内容与上报。
 
-重新编译 Touch ID 小助手（需要 Xcode Command Line Tools）：
+重新编译本机验证小助手（需要 Xcode Command Line Tools）：
 
 ```bash
 ./scripts/build-helper.sh
