@@ -39,6 +39,7 @@ export const ROUTES = {
   lock: '/api/dsh-lock/lock',
   password: '/api/dsh-lock/password',
   biometricSetting: '/api/dsh-lock/biometric-setting',
+  independentLock: '/api/dsh-lock/independent-lock',
   report: '/api/dsh-lock/report',
 }
 
@@ -145,6 +146,7 @@ function emptyState() {
     salt: '',
     hash: '',
     biometric: false,
+    independent: false,
     locked: true,
     lastUnlockAt: 0,
     reason: 'first-run',
@@ -168,6 +170,10 @@ function normaliseState(raw) {
   state.salt = typeof raw.salt === 'string' ? raw.salt : ''
   state.hash = typeof raw.hash === 'string' ? raw.hash : ''
   state.biometric = raw.biometric === true
+  // Opt-in "independent app lock": only the plugin password may unlock, never
+  // the Mac's Touch ID / login password. Absent or malformed means off, so an
+  // older state file keeps the default (local unlock allowed).
+  state.independent = raw.independent === true
   state.locked = raw.locked !== false
   state.lastUnlockAt = typeof raw.lastUnlockAt === 'number' && raw.lastUnlockAt >= 0 ? raw.lastUnlockAt : 0
   state.reason = typeof raw.reason === 'string' ? raw.reason : ''
@@ -180,6 +186,7 @@ function normaliseState(raw) {
     state.salt = ''
     state.hash = ''
     state.biometric = false
+    state.independent = false
   }
   return state
 }
@@ -305,10 +312,27 @@ export class LockStore {
     return this.state !== null && this.state.configured === true
   }
 
-  /** @returns whether Touch ID unlock is configured. */
+  /**
+   * @returns whether the local (Touch ID / Mac login password) unlock is usable.
+   *
+   * The independent app lock wins over the stored biometric preference: while it
+   * is on, the native sheet may not unlock the app at all, even when Touch ID is
+   * enrolled. The preference itself is kept so turning the app lock off restores
+   * whatever the user had chosen.
+   */
   biometricEnabled() {
     this.refreshIfChanged()
-    return this.state !== null && this.state.configured === true && this.state.biometric === true
+    if (this.state === null || this.state.configured !== true) return false
+    return this.state.biometric === true && this.state.independent !== true
+  }
+
+  /**
+   * @returns whether the independent app lock is on: the plugin password is the
+   * only way in, and no local device credential may unlock the app.
+   */
+  independentLock() {
+    this.refreshIfChanged()
+    return this.state !== null && this.state.configured === true && this.state.independent === true
   }
 
   /** @returns whether the current session is unlocked. */
@@ -345,8 +369,9 @@ export class LockStore {
       configured: state.configured === true,
       passwordIsDefault: state.passwordIsDefault === true,
       reason: state.configured === true ? state.reason ?? '' : 'first-run',
-      biometricEnabled: state.configured === true && state.biometric === true,
+      biometricEnabled: state.configured === true && state.biometric === true && state.independent !== true,
       biometricAvailable: this.biometricAvailable === true,
+      independentLock: state.configured === true && state.independent === true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       relockAfterMs: RELOCK_AFTER_MS,
       lastUnlockAt: state.lastUnlockAt,
@@ -378,6 +403,7 @@ export class LockStore {
       salt: hashed.salt,
       hash: hashed.hash,
       biometric: biometric === true && this.biometricAvailable === true,
+      independent: false,
       locked: false,
       reason: '',
       lastUnlockAt: this.now(),
@@ -471,10 +497,29 @@ export class LockStore {
    */
   setBiometric(enabled) {
     if (!this.isUnlocked()) throw new LockError(401, '当前会话未解锁')
+    if (enabled === true && this.independentLock()) {
+      throw new LockError(409, '已开启独立应用锁：请先关闭它，再启用本机解锁')
+    }
     if (enabled === true && this.biometricAvailable !== true) {
       throw new LockError(400, '当前 Mac 不支持本机指纹（Touch ID）或尚未录入指纹')
     }
     this.state.biometric = enabled === true
+    this.state.updatedAt = this.now()
+    this.save()
+  }
+
+  /**
+   * Turn the independent app lock on or off for an unlocked session.
+   *
+   * When it is on, only the plugin password unlocks the app: the native sheet
+   * (Touch ID *and* the Mac login password fallback) is refused by the biometric
+   * route. The stored biometric preference is left alone so switching the app
+   * lock back off restores the previous choice instead of silently changing it.
+   * @param {boolean} enabled - desired state.
+   */
+  setIndependentLock(enabled) {
+    if (!this.isUnlocked()) throw new LockError(401, '当前会话未解锁')
+    this.state.independent = enabled === true
     this.state.updatedAt = this.now()
     this.save()
   }
@@ -670,6 +715,9 @@ export function apply(ctx) {
     handler: mutation('POST', async (req, res) => {
       const available = await store.ensureBiometric()
       if (!store.isConfigured()) throw new LockError(409, '尚未设置解锁方式')
+      if (store.independentLock()) {
+        throw new LockError(409, '已开启独立应用锁：本机指纹与 Mac 登录密码不可用于解锁，请输入插件解锁密码')
+      }
       if (!store.biometricEnabled()) throw new LockError(400, '未启用本机解锁')
       if (!available) throw new LockError(400, '当前 Mac 不支持本机指纹（Touch ID）或尚未录入指纹')
       if (store.biometricInFlight) throw new LockError(429, '正在等待系统验证')
@@ -727,6 +775,16 @@ export function apply(ctx) {
       sendJson(res, 200, { ok: true, status: status() })
     }),
   }), 'dsh-lock: biometric setting')
+
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: ROUTES.independentLock,
+    handler: mutation('POST', async (req, res) => {
+      const body = await readJson(req)
+      store.setIndependentLock(body.enabled === true)
+      sendJson(res, 200, { ok: true, status: status() })
+    }),
+  }), 'dsh-lock: independent app lock')
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',

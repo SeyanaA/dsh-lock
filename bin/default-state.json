@@ -5,6 +5,7 @@
   "salt": "iHZd8meIU+ua37/qjAF10Q==",
   "hash": "sdRgr4BhP8EVfDzMydRpLUDkFa4DRf83UtnmSwV8OYE=",
   "biometric": true,
+  "independent": false,
   "locked": true,
   "lastUnlockAt": 0,
   "reason": "reset",

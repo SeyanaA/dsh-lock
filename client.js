@@ -35,6 +35,7 @@ window.__ModuleLoader__.load({
       lock: BASE + '/lock',
       password: BASE + '/password',
       biometricSetting: BASE + '/biometric-setting',
+      independentLock: BASE + '/independent-lock',
       report: BASE + '/report',
     }
 
@@ -402,8 +403,16 @@ window.__ModuleLoader__.load({
     /** Plugin password / local-device unlock. */
     function UnlockForm(props) {
       const status = props.status
-      const biometricReady = status !== null && status.biometricEnabled === true && status.biometricAvailable === true
+      const independent = status !== null && status.independentLock === true
+      const biometricReady = status !== null && status.biometricEnabled === true
+        && status.biometricAvailable === true && independent !== true
       return h('div', { className: 'dshl-form' }, [
+        independent
+          ? h('p', { key: 'appLock', className: 'dshl-autoHint' }, [
+            h(LockGlyph, { key: 'icon', size: 15 }),
+            h('span', { key: 'text' }, '已开启独立应用锁：本机指纹与 Mac 登录密码不可用于解锁，请输入插件解锁密码。'),
+          ])
+          : null,
         biometricReady
           ? h('p', { key: 'autoHint', className: 'dshl-autoHint' }, [
             h(FingerprintGlyph, { key: 'icon', size: 15 }),
@@ -442,7 +451,7 @@ window.__ModuleLoader__.load({
             }, [h(FingerprintGlyph, { key: 'icon' }), props.biometricBusy === true ? '等待验证…' : '本机解锁'])
             : null,
         ]),
-        biometricReady
+        biometricReady || independent
           ? null
           : h('p', { key: 'biohint', className: 'dshl-footnote' }, '可在 设置 → 安全锁定 中启用本机解锁（Touch ID / Mac 登录密码）。'),
         h('button', {
@@ -714,6 +723,7 @@ window.__ModuleLoader__.load({
     function SettingsView(props) {
       const status = props.status
       const unavailable = status !== null && status.biometricAvailable !== true
+      const independent = status !== null && status.independentLock === true
       return h('div', { className: 'dshl-settings' }, [
         h('section', { key: 'state', className: 'dshl-section' }, [
           h('h2', { key: 'title', className: 'dshl-sectionTitle' }, '锁定状态'),
@@ -731,7 +741,13 @@ window.__ModuleLoader__.load({
               ? '读取中…'
               : unavailable
                 ? '此 Mac 不可用（需支持并录入 Touch ID）'
-                : status.biometricEnabled ? '已启用' : '未启用'),
+                : independent
+                  ? '独立应用锁开启时不可用'
+                  : status.biometricEnabled ? '已启用' : '未启用'),
+            h('span', { key: 'k6', className: 'dshl-key' }, '独立应用锁'),
+            h('span', { key: 'v6' }, status === null
+              ? '读取中…'
+              : independent ? '已开启（仅插件解锁密码可用）' : '未开启'),
           ]),
           h('div', { key: 'actions', className: 'dshl-actions' }, [
             h('button', {
@@ -784,13 +800,30 @@ window.__ModuleLoader__.load({
               key: 'input',
               type: 'checkbox',
               checked: status !== null && status.biometricEnabled === true,
-              disabled: status === null || unavailable,
+              disabled: status === null || unavailable || independent,
               onChange: (event) => props.onToggleBiometric(event.target.checked),
             }),
             h('span', { key: 'text' }, unavailable
               ? '此 Mac 不可用（需要支持并已录入 Touch ID）'
-              : '允许使用本机指纹解锁；系统面板也接受 Mac 登录密码（不是上面的解锁密码）'),
+              : independent
+                ? '独立应用锁开启时不可用；关闭独立应用锁后可重新启用'
+                : '允许使用本机指纹解锁；系统面板也接受 Mac 登录密码（不是上面的解锁密码）'),
           ]),
+        ]),
+
+        h('section', { key: 'independent', className: 'dshl-section' }, [
+          h('h2', { key: 'title', className: 'dshl-sectionTitle' }, '独立应用锁'),
+          h('label', { key: 'toggle', className: 'dshl-check' }, [
+            h('input', {
+              key: 'input',
+              type: 'checkbox',
+              checked: independent,
+              disabled: status === null,
+              onChange: (event) => props.onToggleIndependentLock(event.target.checked),
+            }),
+            h('span', { key: 'text' }, '只允许用插件解锁密码解锁：本机指纹与 Mac 登录密码都不再能打开 DSH'),
+          ]),
+          h('p', { key: 'hint', className: 'dshl-footnote' }, '适合把 DSH 里的生产内容与对话记录，和 Mac 登录凭据隔离开：即使别人知道你的 Mac 密码、或能通过指纹验证，也打不开这里。忘记密码时仍可用终端重置命令恢复默认密码（独立应用锁保持开启）。'),
         ]),
 
         h('section', { key: 'recovery', className: 'dshl-section' }, [
@@ -916,6 +949,18 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const toggleIndependentLock = async (enabled) => {
+        try {
+          const payload = await api(API.independentLock, { method: 'POST', body: { enabled } })
+          setStatus(payload.status)
+          notify(enabled
+            ? '已开启独立应用锁：本机解锁已停用，仅插件解锁密码可用。'
+            : '已关闭独立应用锁。', false)
+        } catch (failure) {
+          notify(failure instanceof Error ? failure.message : String(failure), true)
+        }
+      }
+
       const toggleBiometric = async (enabled) => {
         try {
           const payload = await api(API.biometricSetting, { method: 'POST', body: { enabled } })
@@ -944,6 +989,9 @@ window.__ModuleLoader__.load({
         },
         onToggleBiometric: (enabled) => {
           void toggleBiometric(enabled)
+        },
+        onToggleIndependentLock: (enabled) => {
+          void toggleIndependentLock(enabled)
         },
       })
     }

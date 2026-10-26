@@ -3,7 +3,8 @@
  * Host state-machine test: first-run, setup, unlock, wrong-password lockout,
  * 48-hour re-lock, restart lock, password change and the 4396 reset file.
  */
-import { mkdtempSync, copyFileSync, unlinkSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -133,6 +134,50 @@ check(status.configured === true && status.locked === true && status.passwordIsD
 resetStore.unlock(DEFAULT_PASSWORD)
 check(resetStore.status().locked === false, '4396 must unlock the reset state')
 
+// ------------------------------------------------------------------ independent app lock
+const independentStore = makeStore()
+independentStore.store.startup()
+independentStore.store.setup('abcd', false)
+check(independentStore.store.status().independentLock === false, 'the independent app lock must default to off')
+independentStore.store.setIndependentLock(true)
+status = independentStore.store.status()
+check(status.independentLock === true, 'the independent app lock must report enabled')
+check(status.biometricEnabled === false, 'the independent app lock must disable the local unlock')
+check(independentStore.store.biometricEnabled() === false, 'independent lock must gate biometricEnabled()')
+independentStore.store.lockNow('manual')
+expectStatus(() => independentStore.store.setIndependentLock(false), 401, 'toggling the app lock needs an unlocked session')
+independentStore.store.unlock('abcd')
+check(independentStore.store.status().locked === false, 'the plugin password still unlocks with the app lock on')
+// Persisted and still enforced after a restart of the host process.
+const independentReload = new LockStore({ dir: independentStore.dir, now: () => independentStore.clock.now, skipHelper: true })
+status = independentReload.startup()
+check(status.independentLock === true, 'the independent app lock must survive a restart')
+independentReload.unlock('abcd')
+independentReload.setIndependentLock(false)
+status = independentReload.status()
+check(status.independentLock === false, 'the independent app lock can be turned back off')
+
+// ------------------------------------------------------------------ reset command keeps the posture
+const postureRoot = mkdtempSync(join(tmpdir(), 'dsh-lock-reset-'))
+dirs.push(postureRoot)
+const postureHome = join(postureRoot, 'home')
+mkdirSync(join(postureHome, 'dsh-lock'), { recursive: true })
+const postureState = {
+  ...JSON.parse(readFileSync(join(pluginDir, 'bin', 'default-state.json'), 'utf8')),
+  independent: true,
+  biometric: true,
+}
+writeFileSync(join(postureHome, 'dsh-lock', 'state.json'), JSON.stringify(postureState))
+const resetRun = spawnSync('bash', [join(pluginDir, 'bin', 'reset-password')], {
+  env: { ...process.env, DSH_HOME: postureHome },
+  encoding: 'utf8',
+})
+check(resetRun.status === 0, 'the reset command must succeed: ' + String(resetRun.stderr || '').slice(0, 200))
+const resetState = JSON.parse(readFileSync(join(postureHome, 'dsh-lock', 'state.json'), 'utf8'))
+check(resetState.passwordIsDefault === true, 'the reset command must restore the default password')
+check(resetState.independent === true, 'the reset command must keep the independent app lock enabled')
+check(resetState.biometric === true, 'the reset command must keep the local-unlock preference')
+
 // ------------------------------------------------------------------ deleted state → first run
 const removed = makeStore()
 removed.store.startup()
@@ -154,4 +199,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('  - ' + failure)
   process.exit(1)
 }
-console.log('host-lock: PASS (first-run, setup, unlock, lockout, 48h, restart, change, reset)')
+console.log('host-lock: PASS (first-run, setup, unlock, lockout, 48h, restart, change, reset, independent lock)')

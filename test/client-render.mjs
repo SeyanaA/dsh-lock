@@ -250,6 +250,7 @@ const statusUnlock = {
   passwordIsDefault: true,
   biometricEnabled: true,
   biometricAvailable: true,
+  independentLock: false,
   relockAfterMs: 48 * 60 * 60 * 1000,
   minPasswordLength: 4,
   lastUnlockAt: 1760000000000,
@@ -262,6 +263,7 @@ const statusSetup = {
   passwordIsDefault: false,
   biometricEnabled: false,
   biometricAvailable: true,
+  independentLock: false,
   minPasswordLength: 4,
   relockAfterMs: 48 * 60 * 60 * 1000,
   resetCommand: '/Users/me/.dsh/local-plugins/dsh-lock/bin/reset-password',
@@ -376,6 +378,31 @@ check(classesOf(passwordSuccess).includes('dshl-successPassword'), 'password suc
 check(classesOf(passwordSuccess).includes('dshl-successCheck'), 'password success draws a check mark')
 check(classesOf(passwordSuccess).includes('dshl-shackleOpen'), 'password success opens the lock')
 
+// ------------------------------------------------------------------ independent app lock
+const independentText = textOf(api.LockScreen({
+  status: { ...statusUnlock, independentLock: true, biometricEnabled: false },
+  mode: 'unlock',
+  password: '',
+  confirm: '',
+  useBiometric: true,
+  busy: false,
+  biometricBusy: false,
+  error: '',
+  retryAfterMs: 0,
+  help: false,
+  success: null,
+  biometricPending: false,
+  onPassword: noop,
+  onConfirm: noop,
+  onBiometricToggle: noop,
+  onSubmit: noop,
+  onBiometric: noop,
+  onHelpToggle: noop,
+}))
+check(independentText.includes('独立应用锁'), 'unlock screen must explain the independent app lock')
+check(!independentText.includes('本机解锁'), 'unlock screen must not offer the local unlock under the app lock')
+check(independentText.includes('请输入插件解锁密码'), 'unlock screen must point at the plugin password')
+
 // ------------------------------------------------------------------ settings page
 const settingsText = textOf(api.SettingsView({
   status: statusUnlock,
@@ -390,12 +417,32 @@ const settingsText = textOf(api.SettingsView({
   onLockNow: noop,
   onChangePassword: noop,
   onToggleBiometric: noop,
+  onToggleIndependentLock: noop,
 }))
 check(settingsText.includes('锁定状态'), 'settings: status section')
 check(settingsText.includes('修改解锁密码'), 'settings: password section')
 check(settingsText.includes('本机解锁'), 'settings: local-unlock section')
 check(settingsText.includes('Mac 登录密码'), 'settings: local unlock names the Mac login password fallback')
 check(settingsText.includes('立即锁定'), 'settings: lock-now action')
+check(settingsText.includes('独立应用锁') && settingsText.includes('未开启'), 'settings: independent app lock section shows its off state')
+
+const settingsIndependentText = textOf(api.SettingsView({
+  status: { ...statusUnlock, independentLock: true, biometricEnabled: false },
+  currentPassword: '',
+  nextPassword: '',
+  confirmPassword: '',
+  feedback: '',
+  feedbackError: false,
+  onCurrentPassword: noop,
+  onNextPassword: noop,
+  onConfirmPassword: noop,
+  onLockNow: noop,
+  onChangePassword: noop,
+  onToggleBiometric: noop,
+  onToggleIndependentLock: noop,
+}))
+check(settingsIndependentText.includes('已开启（仅插件解锁密码可用）'), 'settings: independent app lock shows its on state')
+check(settingsIndependentText.includes('独立应用锁开启时不可用'), 'settings: local unlock explains it is off under the app lock')
 
 // ------------------------------------------------------------------ one-click header lock button
 check(

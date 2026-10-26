@@ -145,6 +145,28 @@ const biometricUnguarded = await call(mod.ROUTES.biometric, 'POST', {
 })
 check(biometricUnguarded.status === 403, 'the biometric route must be guarded (no prompt without the client marker)')
 
+// ------------------------------------------------------------------ independent app lock route
+const appLockGuarded = await call(mod.ROUTES.independentLock, 'POST', {
+  headers: { ...goodHeaders, 'x-dsh-lock-client': undefined },
+  body: { enabled: true },
+})
+check(appLockGuarded.status === 403, 'the independent-lock route must be guarded')
+
+const appLockOn = await call(mod.ROUTES.independentLock, 'POST', { body: { enabled: true } })
+check(appLockOn.status === 200 && appLockOn.body?.status?.independentLock === true, 'the independent app lock must turn on')
+check(appLockOn.body?.status?.biometricEnabled === false, 'turning on the app lock must report the local unlock as off')
+
+await call(mod.ROUTES.lock, 'POST', { body: {} })
+const biometricRefused = await call(mod.ROUTES.biometric, 'POST', { body: {} })
+check(biometricRefused.status === 409, `biometric unlock must be refused under the app lock, got ${biometricRefused.status}`)
+check(String(biometricRefused.body?.error ?? '').includes('独立应用锁'), 'the refusal must name the independent app lock')
+
+const unlockByPassword = await call(mod.ROUTES.unlock, 'POST', { body: { password: 'newpass' } })
+check(unlockByPassword.status === 200, 'the plugin password must still unlock with the app lock on')
+
+const appLockOff = await call(mod.ROUTES.independentLock, 'POST', { body: { enabled: false } })
+check(appLockOff.status === 200 && appLockOff.body?.status?.independentLock === false, 'the independent app lock must turn off')
+
 for (const dispose of effects.reverse()) {
   try {
     await dispose()
@@ -163,4 +185,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('  - ' + failure)
   process.exit(1)
 }
-console.log('routes: PASS (guarded setup/lock/unlock/password-change + headers)')
+console.log('routes: PASS (guarded setup/lock/unlock/password-change/independent-lock + headers)')
