@@ -144,6 +144,11 @@ status = independentStore.store.status()
 check(status.independentLock === true, 'the independent app lock must report enabled')
 check(status.biometricEnabled === false, 'the independent app lock must disable the local unlock')
 check(independentStore.store.biometricEnabled() === false, 'independent lock must gate biometricEnabled()')
+// Hot activation: enabling it locks the session in the same request, so no DSH
+// restart (and no weaker-policy session) is left behind.
+check(status.locked === true, 'enabling the independent app lock must lock immediately')
+check(status.reason === 'independent', 'the hot lock must record the app-lock reason')
+check(independentStore.store.isUnlocked() === false, 'the old unlock must be invalidated')
 independentStore.store.lockNow('manual')
 expectStatus(() => independentStore.store.setIndependentLock(false), 401, 'toggling the app lock needs an unlocked session')
 independentStore.store.unlock('abcd')

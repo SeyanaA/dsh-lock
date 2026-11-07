@@ -515,10 +515,25 @@ export class LockStore {
    * (Touch ID *and* the Mac login password fallback) is refused by the biometric
    * route. The stored biometric preference is left alone so switching the app
    * lock back off restores the previous choice instead of silently changing it.
+   *
+   * Enabling it takes effect immediately (hot): the current session was opened
+   * under the old, weaker policy, so it is locked again right away and the lock
+   * screen now demands the plugin password. No DSH restart is involved.
    * @param {boolean} enabled - desired state.
    */
   setIndependentLock(enabled) {
     if (!this.isUnlocked()) throw new LockError(401, '当前会话未解锁')
+    if (enabled === true && this.state.independent !== true) {
+      this.state.independent = true
+      // Hot activation: invalidate the session authenticated by the looser
+      // policy, so the stricter rule is in force from this moment on.
+      this.state.locked = true
+      this.state.reason = 'independent'
+      this.state.failedAttempts = 0
+      this.state.updatedAt = this.now()
+      this.save()
+      return
+    }
     this.state.independent = enabled === true
     this.state.updatedAt = this.now()
     this.save()

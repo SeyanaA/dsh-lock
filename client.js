@@ -25,7 +25,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
 
     const NS = 'dsh-lock'
-    const VERSION = '0.1.6'
+    const VERSION = '0.1.9'
     const BASE = '/api/dsh-lock'
     const API = {
       status: BASE + '/status',
@@ -160,6 +160,7 @@ window.__ModuleLoader__.load({
       if (status.reason === 'restart') return 'DSH 重新启动后需要重新验证。'
       if (status.reason === 'manual') return '已手动锁定，请验证以继续。'
       if (status.reason === 'reset') return '密码已恢复为默认密码，请先输入 4396 解锁。'
+      if (status.reason === 'independent') return '独立应用锁已开启，请使用插件解锁密码重新解锁。'
       return '请验证以继续使用 DeepSeek Harness。'
     }
 
@@ -904,9 +905,13 @@ window.__ModuleLoader__.load({
         const onFocus = () => {
           void refresh()
         }
+        const unsubscribe = subscribeGate(() => {
+          void refresh()
+        })
         window.addEventListener('focus', onFocus)
         document.addEventListener('visibilitychange', onFocus)
         return () => {
+          unsubscribe()
           window.removeEventListener('focus', onFocus)
           document.removeEventListener('visibilitychange', onFocus)
         }
@@ -950,12 +955,27 @@ window.__ModuleLoader__.load({
       }
 
       const toggleIndependentLock = async (enabled) => {
+        if (enabled === true) {
+          const question = '开启独立应用锁会立即锁定 DSH，之后只能用插件解锁密码解锁'
+            + '（本机指纹与 Mac 登录密码都不再可用）。继续？'
+          if (typeof window.confirm === 'function' && window.confirm(question) !== true) {
+            // The checkbox is controlled by `status`; refresh to snap it back.
+            void refresh()
+            return
+          }
+        }
         try {
           const payload = await api(API.independentLock, { method: 'POST', body: { enabled } })
           setStatus(payload.status)
-          notify(enabled
-            ? '已开启独立应用锁：本机解锁已停用，仅插件解锁密码可用。'
-            : '已关闭独立应用锁。', false)
+          if (enabled === true) {
+            // Hot activation: put the gate up in this very render cycle instead
+            // of waiting for the next status poll or a DSH restart.
+            emitGate(true)
+            notify('独立应用锁已开启并立即生效：请用插件解锁密码解锁。', false)
+            report('independent-locked', { mode: 'locked', locked: true })
+          } else {
+            notify('已关闭独立应用锁。', false)
+          }
         } catch (failure) {
           notify(failure instanceof Error ? failure.message : String(failure), true)
         }

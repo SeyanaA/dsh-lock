@@ -402,6 +402,8 @@ const independentText = textOf(api.LockScreen({
 check(independentText.includes('独立应用锁'), 'unlock screen must explain the independent app lock')
 check(!independentText.includes('本机解锁'), 'unlock screen must not offer the local unlock under the app lock')
 check(independentText.includes('请输入插件解锁密码'), 'unlock screen must point at the plugin password')
+check(api.reasonText({ configured: true, reason: 'independent', relockAfterMs: 0 }).includes('独立应用锁'),
+  'the lock screen reason should name the independent app lock')
 
 // ------------------------------------------------------------------ settings page
 const settingsText = textOf(api.SettingsView({
